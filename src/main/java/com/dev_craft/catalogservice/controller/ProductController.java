@@ -34,9 +34,9 @@ public class ProductController {
     }
 
     @GetMapping("/{code}")
-    public Product productByCode(@PathVariable String code) {
+    public ResponseEntity<Product> productByCode(@PathVariable String code) {
         log.info("Finding product by code :"+code);
-        return productService.findProductByCode(code)
-                .orElseThrow(() -> new NotFoundException("Product with code ["+code+"] doesn't exist"));
+        return productService.findProductByCode(code).map(ResponseEntity::ok)
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 }

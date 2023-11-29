@@ -28,16 +28,16 @@ public class ProductService {
     public List<Product> findAllProducts() {
         List<Product> products = productRepository.findAll();
         final Map<String, Integer> inventoryLevels = getInventoryLevelsWithFeignClient();
-        final List<Product> availableProducts = products.stream()
+        return products.stream()
                 .filter(p -> inventoryLevels.get(p.getCode()) != null && inventoryLevels.get(p.getCode()) > 0)
                 .collect(Collectors.toList());
-        return availableProducts;
     }
 
     private Map<String, Integer> getInventoryLevelsWithFeignClient() {
         log.info("Fetching inventory levels using FeignClient");
         Map<String, Integer> inventoryLevels = new HashMap<>();
-        List<ProductInventoryResponse> inventory = inventoryServiceClient.getInventoryLevels();
+        List<ProductInventoryResponse> inventory = inventoryServiceClient.findInventory().getBody();
+        assert inventory != null;
         for (ProductInventoryResponse item: inventory){
             inventoryLevels.put(item.getProductCode(), item.getAvailableQuantity());
         }
@@ -48,16 +48,14 @@ public class ProductService {
 
     public Optional<Product> findProductByCode(String code) {
         Optional<Product> productOptional = productRepository.findByCode(code);
-        log.info(String.valueOf(productOptional.get()));
         if (productOptional.isPresent()) {
             Optional<ProductInventoryResponse> itemResponseEntity =
-                    Optional.of(this.inventoryServiceClient.findInventoryByProductCode(code).getBody());
+                    Optional.ofNullable(this.inventoryServiceClient.findInventoryByProductCode(code).getBody());
             if (itemResponseEntity.isPresent()) {
-                log.info("found");
-                Integer quantity = itemResponseEntity.get().getAvailableQuantity();
-                productOptional.get().setInStock(quantity > 0);
-            }else
-                log.info("not found");
+                productOptional.get().setInStock(itemResponseEntity.get().getAvailableQuantity() > 0);
+            } else {
+                productOptional.get().setInStock(false);
+            }
         }
         return productOptional;
     }
